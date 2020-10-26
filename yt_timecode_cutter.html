@@ -1,0 +1,413 @@
+<!doctype html>
+<!-- Пример запуска из браузера: file:///E:/path_to_file/yt_timecode_cutter.html?videocode=8SeI7Vyfvcc -->
+<html lang="ru">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+
+    <title>Youtube Timecode Cutter</title>
+    <style>
+        .timecode_block { 
+            border:1px solid gray; 
+            margin-left:20%; 
+            margin-right: 20%; 
+            text-align: left; 
+            padding: 15px
+        }
+        .light_theme {
+            background-color: white;
+        }
+        .light_table_head {
+            background-color: #EEE;
+        }
+        .dark_theme {
+            color:#DDD;
+            background-color: black;
+        }
+        .dark_table_head {
+            background-color:#222;
+        }
+        .dark_table {
+            color:#DDD;
+            background-color:#111;
+        }
+        .dark_input {
+            background-color:#CCC;
+        }
+    </style>
+    
+  </head>
+  <body>
+    <div id="app" :class="{light_theme: !dark_theme, dark_theme: dark_theme}">
+        <div style="width:100%; border:1px solid #EEE; text-align:center;">
+            <h3 v-if="video_info.title != ''">{{ video_info.author }} - {{ video_info.title }}</h3>
+            <h3 v-else>Youtube Timecode Cutter</h3>
+            (Vue:{{ vue_ver }})
+            
+            <div class="p-2">
+                <input style="width:450px" class="input-control" type="text" v-model="videourl" placeholder="Вставьте сюда ссылку на видео и нажмите Обновить" @keypress.enter="onReloadVideo"/> 
+                <input style="width:130px" class="input-control" type="text" v-model="videocode" disabled/> 
+                <button type="button" class="btn btn-primary" @click="onReloadVideo">Обновить</button>
+             </div>
+            
+            <div class="p-2">
+                <button type="button" class="btn btn-light">Скорость</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 0.5}" onClick="setPlaybackRate(0.5);">0.5</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 1}" onClick="setPlaybackRate(1);">1</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 1.25}" onClick="setPlaybackRate(1.25);">1.25</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 1.5}" onClick="setPlaybackRate(1.5);">1.5</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 2}" onClick="setPlaybackRate(2);">2</button>
+            </div>
+        
+            <div id="player_container">
+                <div id="player1"></div>
+            </div>
+            
+             <div class="p-2">
+                <button type="button" class="btn btn-outline-info" onClick="seekMinusSecond(600);">-10m</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekMinusSecond(300);">-5m</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekMinusSecond(60);">-1m</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekMinusSecond(20);">-20s</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekMinusSecond(5);">-5s</button>
+                <button type="button" class="btn btn-outline-info" onClick="playVideo();">Проигрывание ></button>
+                <button type="button" class="btn btn-outline-info" onClick="pauseVideo();">Пауза ||</button>
+                <button type="button" class="btn btn-outline-info" onClick="stopVideo();">Стоп</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekPlusSecond(5);">+5s</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekPlusSecond(20);">+20s</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekPlusSecond(60);">+1m</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekPlusSecond(300);">+5m</button>
+                <button type="button" class="btn btn-outline-info" onClick="seekPlusSecond(600);">+10m</button>
+            </div>
+            <div>
+                <input style="-width:100%" class="custom-range p-2" type="range" v-model="video_info.current_time" min="0" :max="video_info.playback_duration" @change="videoRangeChange">
+            </div>
+            <div class="p-2">
+                <button type="button" class="btn btn-outline-primary" @click="updateVideoInfo">updateVideoInfo</button>
+                <!--button type="button" class="btn btn-outline-primary" onClick="setInitVideo();">Вернуться к начальному видео</button-->
+                <button type="button" class="btn" :class="{'btn-light': dark_theme, 'btn-secondary': !dark_theme}" @click="toggleTheme"><span v-if="dark_theme">Светлая тема</span><span v-else>Тёмная тема</span></button>
+                <button type="button" class="btn btn-outline-primary" @click="timecodesSort">Сортировать</button>
+                <button type="button" class="btn btn-info" @click="addTimecode">Установить метку</button>
+            </div>
+            <div>
+                <table class="table" border="1" :class="{dark_table: dark_theme}">
+                    <thead :class="{light_table_head: !dark_theme, dark_table_head: dark_theme}">
+                        <th>VideoId</th>
+                        <th>сек.</th>
+                        <th>время</th>
+                        <th>Заголовок</th>
+                        <!--th>Описание</th-->
+                        <th>Del</th>
+                    <thead>
+                    <tbody>
+                    <tr v-for="(timecode, index) in timecodes">
+                        <td style="width:100px;">{{timecode.videocode}}</td>
+                        <td style="width:100px"><input type="number" v-model="timecode.sec" style="width:100%" :class="{dark_input: dark_theme}"></td>
+                        <td style="cursor: pointer; width:100px" @click="seekToIndex(index)" @wheel.prevent="timeWheel($event, index)">{{ timecode.sec | sec_time }}</td>
+                        <td><input type="text" v-model="timecode.title" style="width:100%" :class="{dark_input: dark_theme}" placeholder="Введите описание"></td>
+                        <!--td><input type="text" v-model="timecode.description"></td-->
+                        <td width="4"><button class="btn btn-outline-dark" @click="removeTimecode(index)">X</button></td>
+                    </tr>
+                    <tbody>
+                </table>
+            </div>
+            <div class="timecode_block" :class="{dark_theme: dark_theme}"><div v-for="timecode in timecodes">{{ timecode.sec | sec_time }} {{ timecode.title }}</div></div>
+
+            <div style="cursor:pointer" @click="show_block.block_info = !show_block.block_info"><template v-if="show_block.block_info">Скрыть инфо</template><template v-else="show_block.block_info">Показать инфо плеера</template></div>
+            <div v-show="show_block.block_info">
+                <pre>{{ video_info }}</pre>
+            </div>
+            <div style="cursor:pointer" @click="show_block.block_json = !show_block.block_json"><template v-if="show_block.block_json">Скрыть JSON</template><template v-else="show_block.block_json">Показать JSON</template></div>
+            <div v-show="show_block.block_json">
+                <pre>{{ $data.timecodes }}</pre>    
+            </div>
+            <pre></pre>
+        </div>
+        
+    </div>
+
+
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+
+
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script>
+        // Описание работы с youtube-iframe: https://developers.google.com/youtube/iframe_api_reference?hl=ru
+        var player;
+        var init_videocode; // инициализирующее видео
+        var previous_videocode;
+        var current_videocode;
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player( 'player1', {
+              playerVars: { 'autoplay': 1, 'controls': 1 },
+              //height: '360',
+              //width: '640',
+              videoId: init_videocode,
+              events: { 
+                'onStateChange': onPlayerStateChange,
+                'onReady': onPlayerReady,
+                'onPlaybackQualityChange': onPlaybackQualityChange,
+                'onPlaybackRateChange': onPlaybackRateChange,
+                'onError': onPlayerError,
+              }
+            });
+            app.player = player;
+        }
+        
+        function onPlayerStateChange(event) {
+            if (event.data == 1)
+                app.startTimer()
+            else 
+                app.stopTimer();
+            app.updateVideoInfo();
+            // Вызывается когда меняется состояние: event.data = 0 - воспроизведение завершено, 1 - воспроизведение, 2 - пауза, 3 - буферизация, -1 - видео не начато
+            /*
+            console.log('Состояние: ', event.data);
+            console.log('Время: ', player.getCurrentTime());
+            console.log('Скорость воспроизведения: ', player.getPlaybackRate());
+            console.log('Качество: ', player.getPlaybackQuality());
+            */
+        }
+        function onPlayerReady(event) {
+            // Вызывается, когда плеер прогрузился
+            // var embedCode = event.target.getVideoEmbedCode(); //Получение embed кода
+            // var url = player.getVideoUrl() // Получение url
+            // event.target.playVideo(); // В event.target содержится player
+            app.player = player;
+            app.playerReady();
+        }
+        function onPlaybackQualityChange(event) {
+            app.updateVideoInfo();
+        }
+        
+        function onPlaybackRateChange(event) {
+            app.updateVideoInfo();
+        }
+        
+        function onPlayerError(event) {
+            app.updateVideoInfo();
+            console.log(event);
+        }
+        
+        function pauseVideo() {
+            player.pauseVideo();
+        }   
+
+        function playVideo() {
+            player.playVideo();
+        }   
+        function stopVideo() {
+            player.stopVideo();
+        }   
+        function seekPlusSecond(insecond) {
+            ct = player.getCurrentTime();
+            player.seekTo(ct + insecond, true);
+        }
+        function seekMinusSecond(insecond) {
+            ct = player.getCurrentTime();
+            player.seekTo(ct - insecond, true);
+        }
+        function setPlaybackRate(inspeed) {
+            player.setPlaybackRate(inspeed);
+        }
+
+        function getUrlParam(key) {
+            // Получение GET параметра
+            var p = window.location.search;
+            p = p.match(new RegExp(key + '=([^&=]+)'));
+            return p ? p[1] : '';
+        }
+        function setVideo(incode) {
+            previous_videocode = $('#video_code_input').val();
+            current_videocode = incode;
+            //player.loadVideoById({'videoId': incode});
+            player.loadVideoById(incode);
+            // С параметрами:
+            //player.loadVideoById({'videoId': '8SeI7Vyfvcc', 'startSeconds': 5, 'endSeconds': 60, 'suggestedQuality': 'large'});
+            $('#video_code_input').val(incode);
+        }
+        function setInitVideo() {
+            setVideo(app.init_videocode);
+        }
+
+        
+        var app = new Vue({
+            el: '#app',
+            data: {
+                title: 'AA',
+                init_videocode: '',
+                vue_ver: Vue.version,
+                videocode: '', 
+                videourl: '',
+                //player: null,
+                player_ready: false,
+                video_info: {
+                    current_time: 0,
+                    current_time_raw: 0,
+                    playback_quality: null,
+                    playback_rate: null,
+                    playback_state: null,
+                    playback_loaded_fraction: 0,
+                    playback_duration: 0,
+                    author: '',
+                    title: '',
+                    video_id: '',
+                },
+                timecodes: [],
+                timer: null,
+                timeinterval: 1000,
+                dark_theme: true,
+                show_block: {'block_info': false, 'block_json': false, 'block3': true},
+                player: null
+            },
+            created: function() {
+                this.videourl = getUrlParam('videocode');
+                console.log(getUrlParam('videocode'));
+                let dark_theme = getUrlParam('dark_theme');
+                if (dark_theme=='0') {
+                    this.dark_theme = false;
+                }
+               
+            },
+            watch: {
+                videourl: function(newVal, oldVal) {
+                    this.videocode = this.getVideoIdFromUrl(newVal);
+                },
+                /* // Получается зацикленность: При изменении по таймеру времени current_time, запускается seekTo
+                'video_info.current_time': function(val) {
+                    console.log('seekTo '+val );
+                    player.seekTo(val);
+                },
+                */
+            },
+            methods: {
+                playerReady: function() {
+                    player_ready = true;
+                    console.log('player READY');
+                    if (this.videocode != '') {
+                        player.loadVideoById(this.videocode);
+                        player.stopVideo();
+                        this.init_videocode = this.videocode;
+                        
+                    }
+                },
+                onReloadVideo: function() {
+                    if (player_ready) {
+                        player.loadVideoById(this.videocode);
+                    }
+                },
+                addTimecode: function() {
+                    if (player_ready) {
+                        this.timecodes.push({'videocode': this.videocode, 'sec': Math.floor(player.getCurrentTime()), 'sec_raw': player.getCurrentTime(), 'title': '', 'description': ''});
+                    }
+                },
+                removeTimecode: function(index) {
+                    this.timecodes.splice(index, 1);
+                },
+                seekToIndex: function(index) {
+                    if (player_ready) {
+                        player.seekTo(this.timecodes[index].sec, true);
+                    }
+                },
+                timeWheel: function(event, index) {
+                    //console.log(event, index);
+                    if (event.deltaY < 0) {
+                        this.timecodes[index].sec = parseInt(this.timecodes[index].sec) + 1 ;
+                    } else {
+                        if (this.timecodes[index].sec > 0) {
+                            this.timecodes[index].sec = parseInt(this.timecodes[index].sec) - 1;
+                        }
+                    }
+                },
+                getVideoIdFromUrl: function(val) {
+                    let videourl = val;
+                    let res = '';
+                    if (videourl.length == 11)
+                        res = videourl;
+                    if (res == '') {
+                        let videoid_match = videourl.match(new RegExp('youtube.*v=([^&=]{11})', 'i'));
+                        res = videoid_match ? videoid_match[1] : '';
+                    }
+                    if (res == '') {
+                        let videoid_match = videourl.match(new RegExp('youtu\.be/([^&=]{11})', 'i'));
+                        res = videoid_match ? videoid_match[1] : '';
+                    }
+                    return res;
+                },
+                updateVideoInfo: function() {
+                    if (player_ready) {
+                        this.video_info.current_time = Math.floor(player.getCurrentTime());
+                        this.video_info.current_time_raw = player.getCurrentTime();
+                        this.video_info.playback_quality = player.getPlaybackQuality();
+                        this.video_info.playback_rate = player.getPlaybackRate();
+                        this.video_info.playback_loaded_fraction = player.getVideoLoadedFraction();
+                        this.video_info.playback_duration = player.getDuration();
+                        this.video_info.playback_state = player.getPlayerState();
+                        this.video_info.author = player.playerInfo.videoData.author;
+                        this.video_info.title = player.playerInfo.videoData.title;
+                        this.video_info.video_id = player.playerInfo.videoData.video_id;
+                    }
+                },
+                timefunc: function() {
+                    console.log('timefunc');
+                    this.updateVideoInfo();
+                },
+                startTimer: function() {
+                    this.timer = setInterval(this.timefunc, this.timeinterval);
+                },
+                stopTimer: function() {
+                    clearInterval(this.timer);
+                },
+                videoRangeChange:  function(event) {
+                    console.log(event);
+                    console.log('SeekTo: '+this.video_info.current_time);
+                    player.seekTo(this.video_info.current_time);
+                },
+                timecodesSort: function() {
+                    this.timecodes.sort(function(a,b){return a.sec - b.sec});
+                },
+                toggleTheme: function() {
+                    this.dark_theme = !this.dark_theme;
+                },
+            },
+            filters: {
+                sec_round: function(val) {
+                    return Math.round(val,0);
+                },
+                sec_time: function(val) {
+                    const hour = Math.floor(val/3600);
+                    const minute = Math.floor((val - 3600*hour)/60);
+                    const sec = Math.floor(val - hour*3600 - minute*60);
+                    const hour_str = String(hour);
+                    const minute_str = String(minute).padStart(2,0);
+                    const sec_str = String(sec).padStart(2,0);
+                    //console.log(hour+':'+minute+':'+sec);
+                    return hour_str + ':' + minute_str + ':' + sec_str;
+                    
+                }
+            }
+            
+        });
+
+        $(document).ready(function(){
+            // Инициализация jQuery
+            //setTimeout(function(){
+            //    // Запуск через 1с
+            //    init();
+            //},1000)
+        });
+
+    </script>
+    
+  </body>
+</html>
