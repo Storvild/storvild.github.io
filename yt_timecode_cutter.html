@@ -38,22 +38,29 @@
         .dark_input {
             background-color:#CCC;
         }
+        .pointer {
+            cursor: pointer
+        }
+        .br {
+            border:1px solid red;
+        }
+        
     </style>
     
   </head>
   <body>
     <div id="app" :class="{light_theme: !dark_theme, dark_theme: dark_theme}">
         <div style="width:100%; border:1px solid #EEE; text-align:center;">
-            <h3 v-if="video_info.title != ''">{{ video_info.author }} - {{ video_info.title }}</h3>
-            <h3 v-else>Youtube Timecode Cutter</h3>
-            (Vue:{{ vue_ver }})
+            <h3 v-if="video_info.title != ''"><a :href="self_page_short_link">{{ video_info.author }} - {{ video_info.title }}</a></h3>
+            <h3 v-else><a href="">Youtube Timecode Cutter</a></h3>
+            (ver.1.0 beta, Vue:{{ vue_ver }})
             
-            <div class="p-2">
+            <div class="p-2 ">
 
-                <div class="input-group justify-content-center" >
-                    <input type="search" style="width:450px" class="input-control" type="text" v-model="videourl" placeholder="Вставьте сюда ссылку на видео и нажмите Обновить" @keypress.enter="onReloadVideo"/> 
+                <div class="input-group" style="width:70%; margin:auto" >
+                    <input type="search" style="width:450px" class="form-control" type="text" v-model="videourl" placeholder="Вставьте сюда ссылку на видео и нажмите Обновить" @keypress.enter="onReloadVideo"/> 
                     <div class="input-group-append">
-                        <input style="width:130px" class="input-control" type="text" v-model="videocode" disabled/> 
+                        <input style="width:130px" class="form-control" type="text" v-model="videocode" disabled/> 
                         <button type="button" class="btn btn-primary" @click="onReloadVideo">Обновить</button>
                     </div>
                 </div>
@@ -102,7 +109,7 @@
             <div>
                 <table class="table" border="1" :class="{dark_table: dark_theme}">
                     <thead :class="{light_table_head: !dark_theme, dark_table_head: dark_theme}">
-                        <th>VideoId</th>
+                        <th>Созд.</th>
                         <th>сек.</th>
                         <th>время</th>
                         <th>Заголовок</th>
@@ -111,19 +118,43 @@
                     <thead>
                     <tbody>
                     <tr v-for="(timecode, index) in timecodes">
-                        <td style="width:100px;">{{timecode.videocode}}</td>
-                        <td style="width:100px"><input type="number" v-model="timecode.sec" style="width:100%" :class="{dark_input: dark_theme}"></td>
+                        <td style="width:100px;">{{ timecode.created | time_str }}</td>
+                        <td style="width:100px"><input type="number" class="form-control" v-model="timecode.sec" style="width:100%" :class="{dark_input: dark_theme}"></td>
                         <td style="cursor: pointer; width:100px" @click="seekToIndex(index)" @wheel.prevent="timeWheel($event, index)">{{ timecode.sec | sec_time }}</td>
-                        <td><input type="text" v-model="timecode.title" style="width:100%" :class="{dark_input: dark_theme}" placeholder="Введите описание"></td>
+                        <td><input type="text" class="form-control" v-model="timecode.title" style="width:100%" :class="{dark_input: dark_theme}" placeholder="Введите описание"></td>
                         <!--td><input type="text" v-model="timecode.description"></td-->
                         <td width="4"><button class="btn btn-outline-dark" @click="removeTimecode(index)">X</button></td>
                     </tr>
                     <tbody>
                 </table>
             </div>
+            
+
+            
             <div class="timecode_block" :class="{dark_theme: dark_theme}">
-                <div v-for="timecode in timecodes">{{ timecode.sec | sec_time }} {{ timecode.title }}</div>
-                <div class="text-right" v-if="timecodes.length > 0"><button class="btn btn-outline-secondary btn-sm" style="margin-top:10px;" @click="toClipboard" title="Скопировать в буфер обмена">В буфер</button></div>
+                <ul class="nav nav-tabs">
+                  <li class="nav-item">
+                    <a class="nav-link pointer" :class="{active: timecode_result_format == 'text'}" @click="timecode_result_format = 'text'">Text</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link pointer" :class="{active: timecode_result_format == 'json'}" @click="timecode_result_format = 'json'">Json</a>
+                  </li>
+                  <li class="nav-item">
+                    <a class="nav-link pointer" @click="saveToCsv">save CSV</a>
+                  </li>
+                  <!--li class="nav-item">
+                    <a class="nav-link disabled active" href="#">Disabled</a>
+                  </li-->
+                </ul>            
+            
+                <div class="m-3" v-if="timecode_result_format == 'text'">
+                    <div v-for="timecode in timecodes">{{ timecode.sec | sec_time }} {{ timecode.title }}</div>
+                </div>
+                <div class="m-3" v-else-if="timecode_result_format == 'json'" >
+                    <pre style="color:#888">{{ $data.timecodes }}</pre>
+                </div>
+                
+                <div class="text-right" v-if="timecodes.length"><button class="btn btn-outline-secondary btn-sm" style="margin-top:10px;" @click="toClipboard" title="Скопировать в буфер обмена">В буфер</button></div>
             </div>
 
             <div style="cursor:pointer" @click="show_block.block_info = !show_block.block_info"><template v-if="show_block.block_info">Скрыть инфо</template><template v-else="show_block.block_info">Показать инфо плеера</template></div>
@@ -194,7 +225,7 @@
             // var embedCode = event.target.getVideoEmbedCode(); //Получение embed кода
             // var url = player.getVideoUrl() // Получение url
             // event.target.playVideo(); // В event.target содержится player
-            app.player = player;
+            //app.player = player;
             app.playerReady();
         }
         function onPlaybackQualityChange(event) {
@@ -250,7 +281,7 @@
         function setInitVideo() {
             setVideo(app.init_videocode);
         }
-        function sec_to_time(val) {
+        function sec_to_time(val, hour_required=false) {
             const hour = Math.floor(val/3600);
             const minute = Math.floor((val - 3600*hour)/60);
             const sec = Math.floor(val - hour*3600 - minute*60);
@@ -258,7 +289,59 @@
             const minute_str = String(minute).padStart(2,0);
             const sec_str = String(sec).padStart(2,0);
             //console.log(hour+':'+minute+':'+sec);
-            return hour_str + ':' + minute_str + ':' + sec_str;
+            if (hour > 0 || hour_required) {
+                res = hour_str + ':' + minute_str + ':' + sec_str;
+            }
+            else {
+                res = minute_str + ':' + sec_str;
+            }
+            return res;
+        }
+        // Function to download data to a file
+        function download(data, filename, type) {
+            var file = new Blob([data], {type: type});
+            if (window.navigator.msSaveOrOpenBlob) // IE10+
+                window.navigator.msSaveOrOpenBlob(file, filename);
+            else { // Others
+                var a = document.createElement("a"),
+                        url = URL.createObjectURL(file);
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function() {
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);  
+                }, 0); 
+            }
+        }
+        function json_to_csv(json, fields=[]) {
+            csv = ''
+            if (json.length > 0) {
+                if (fields.length == 0) {
+                    fields = Object.keys(json[0])
+                }
+                //var replacer = function(key, value) { return value === null ? '' : value } 
+                var csv = json.map(function(row){
+                  return fields.map(function(fieldName){
+                    //return JSON.stringify(row[fieldName], replacer)
+                    let fieldValue = row[fieldName] === null ? '' : row[fieldName];
+                    fieldValue = fieldValue.toString().replace(new RegExp('"','g'), '""');
+                    return '"'+fieldValue+'"';
+                  }).join(',')
+                })
+                csv.unshift(fields.join(',')) // add header column
+                csv = csv.join('\r\n');
+            }
+            return csv;
+        }
+        function time_to_str(val) {
+            
+            let hours = val.getHours().toString();
+            let minutes = val.getMinutes().toString().padStart(2, '0');
+            let seconds = val.getSeconds().toString().padStart(2, '0');
+            return hours + ':' +minutes + ':' + seconds;
+            
         }
         
         var app = new Vue({
@@ -269,7 +352,6 @@
                 vue_ver: Vue.version,
                 videocode: '', 
                 videourl: '',
-                //player: null,
                 player_ready: false,
                 video_info: {
                     current_time: 0,
@@ -288,7 +370,8 @@
                 timeinterval: 1000,
                 dark_theme: true,
                 show_block: {'block_info': false, 'block_json': false, 'block3': true},
-                player: null
+                player: null,
+                timecode_result_format: 'text',
             },
             created: function() {
                 this.videourl = getUrlParam('videocode');
@@ -309,6 +392,15 @@
                     player.seekTo(val);
                 },
                 */
+            },
+            computed: {
+                self_page_short_link: function() {
+                    let res = '?videocode=' + this.videocode;
+                    if (this.dark_theme == false) {
+                        res += '&dark_theme=0';
+                    }
+                    return res
+                }
             },
             methods: {
                 playerReady: function() {
@@ -403,16 +495,31 @@
                     this.dark_theme = !this.dark_theme;
                 },
                 toClipboard: function() {
-                    let text = this.timecodes.map(function(item) {
-                        return sec_to_time(item.sec) + ' ' + item.title;
-                    }).join('\r\n');
-                    navigator.clipboard.writeText(text);
-                    //navigator.clipboard.writeText(text).then(function() {
-                    //    //console.log('Скопировано');
-                    //}, function() {
-                    //    //console.log('Ошибка копирования');
-                    //});
+                    let text = ''
+                    
+                    if (this.timecode_result_format == 'text') {
+                        text = this.timecodes.map(function(item) {
+                            return sec_to_time(item.sec) + ' ' + item.title;
+                        }).join('\r\n');
+                    }
+                    else if (this.timecode_result_format == 'json') {
+                        text = JSON.stringify(this.timecodes, null, 4);
+                    }
+                    navigator.clipboard.writeText(text).then(function() {}, function() {});
                 },
+                saveToCsv: function() {
+                    if (this.timecodes.length > 0) {
+                        let new_timecodes = [];
+                        for (let i = 0; i < this.timecodes.length; i++) {
+                            item = Object.assign({}, this.timecodes[i]);
+                            item['time'] = sec_to_time(item['sec']);
+                            item['created'] = time_to_str(item['created']);
+                            new_timecodes.push(item);
+                        }
+                        text = json_to_csv(new_timecodes, ['time', 'title', 'sec', 'videocode']);
+                        download(text, 'TimecodeCutter.csv', 'text/plain;charset=utf-8');
+                    }
+                }
             },
             filters: {
                 sec_round: function(val) {
@@ -420,15 +527,9 @@
                 },
                 sec_time: function(val) {
                     return sec_to_time(val);
-                    /*const hour = Math.floor(val/3600);
-                    const minute = Math.floor((val - 3600*hour)/60);
-                    const sec = Math.floor(val - hour*3600 - minute*60);
-                    const hour_str = String(hour);
-                    const minute_str = String(minute).padStart(2,0);
-                    const sec_str = String(sec).padStart(2,0);
-                    //console.log(hour+':'+minute+':'+sec);
-                    return hour_str + ':' + minute_str + ':' + sec_str;
-                    */
+                },
+                time_str: function(val) {
+                    return time_to_str(val);
                 }
             }
             
@@ -445,8 +546,8 @@
         //WISH:
         // + в input кнопка удалить содержимое. (input-group, type="search")
         // + копия в буфер navigator.clipboard.writeText(text);
+        // + возврат сортировки (доб.время добавления)
         // экспорт в csv, json
-        // возврат сортировки (доб.время добавления)
         // сортировка в заголовке время
         
     </script>
