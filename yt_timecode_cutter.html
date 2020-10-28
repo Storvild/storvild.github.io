@@ -53,7 +53,7 @@
         <div style="width:100%; border:1px solid #EEE; text-align:center;">
             <h3 v-if="video_info.title != ''"><a :href="self_page_short_link">{{ video_info.author }} - {{ video_info.title }}</a></h3>
             <h3 v-else><a href="">Youtube Timecode Cutter</a></h3>
-            (ver.1.0 beta, Vue:{{ vue_ver }})
+            (ver.0.9.2, Vue:{{ vue_ver }})
             
             <div class="p-2 ">
 
@@ -102,17 +102,27 @@
                 <button type="button" class="btn btn-outline-primary" @click="updateVideoInfo">updateVideoInfo</button>
                 <!--button type="button" class="btn btn-outline-primary" onClick="setInitVideo();">Вернуться к начальному видео</button-->
                 <button type="button" class="btn" :class="{'btn-light': dark_theme, 'btn-secondary': !dark_theme}" @click="toggleTheme"><span v-if="dark_theme">Светлая тема</span><span v-else>Тёмная тема</span></button>
-                <button type="button" class="btn btn-outline-primary" @click="timecodesSortByTime">Сортировать</button>
-                <button type="button" class="btn btn-outline-primary" @click="timecodesSortByCreated">Сорт.по созданию</button>
                 <button type="button" class="btn btn-info" @click="addTimecode">Установить метку</button>
             </div>
             <div>
                 <table class="table" border="1" :class="{dark_table: dark_theme}">
                     <thead :class="{light_table_head: !dark_theme, dark_table_head: dark_theme}">
-                        <th>Созд.</th>
-                        <th>сек.</th>
-                        <th>время</th>
-                        <th>Заголовок</th>
+                        <th>Созд. 
+                            <a class="pointer" @click="timecodesSort('created')" title="Сортировать по созданию записи">&darr;</a>
+                            <a class="pointer" @click="timecodesSort('created', true)" title="Сортировать по созданию записи в обратном порядке">&uarr;</a>
+                        </th>
+                        <th>сек. 
+                            <a class="pointer" @click="timecodesSort('sec')" title="Сортировать по таймкоду">&darr;</a>
+                            <a class="pointer" @click="timecodesSort('sec', true)" title="Сортировать по таймкоду в обратном порядке">&uarr;</a>
+                        </th>
+                        <th>время 
+                            <a class="pointer" @click="timecodesSort('sec')" title="Сортировать по созданию">&darr;</a>
+                            <a class="pointer" @click="timecodesSort('sec', true)" title="Сортировать по созданию в обратном порядке">&uarr;</a>
+                        </th>
+                        <th>Заголовок 
+                            <a class="pointer" @click="timecodesSort('title')" title="Сортировать по наименованию">&darr;</a>
+                            <a class="pointer" @click="timecodesSort('title', true)" title="Сортировать по наименованию в обратном порядке">&uarr;</a>
+                        </th>
                         <!--th>Описание</th-->
                         <th>Del</th>
                     <thead>
@@ -140,7 +150,7 @@
                     <a class="nav-link pointer" :class="{active: timecode_result_format == 'json'}" @click="timecode_result_format = 'json'">Json</a>
                   </li>
                   <li class="nav-item">
-                    <a class="nav-link pointer" @click="saveToCsv">save CSV</a>
+                    <a class="nav-link pointer" @click="saveToCsv"  data-toggle="modal" data-target="#exampleModal">save CSV</a>
                   </li>
                   <!--li class="nav-item">
                     <a class="nav-link disabled active" href="#">Disabled</a>
@@ -165,9 +175,36 @@
             <div v-show="show_block.block_json">
                 <pre>{{ $data.timecodes }}</pre>    
             </div>
-            <pre></pre>
+            <div style="cursor:pointer" @click="show_block.block_help = !show_block.block_help"><template v-if="show_block.block_help">Help</template><template v-else="show_block.block_help">Help</template></div>
+            <div v-show="show_block.block_help">
+                <div>Помощь уже в пути...</div>    
+            </div>
+            
             
         </div>
+
+
+        <!-- Модальное окно для сохранения csv -->
+        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+          <div class="modal-dialog" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">Сохранение CSV</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <div class="modal-body">
+                Вы действительно хотите сохранить файл в TimecodeCutter.csv?
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-dismiss="modal" @click="saveToCsv">Сохранить</button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         
     </div>
 
@@ -369,7 +406,7 @@
                 timer: null,
                 timeinterval: 1000,
                 dark_theme: true,
-                show_block: {'block_info': false, 'block_json': false, 'block3': true},
+                show_block: {'block_info': false, 'block_json': false, 'block_help': false},
                 player: null,
                 timecode_result_format: 'text',
             },
@@ -485,11 +522,13 @@
                     console.log('SeekTo: '+this.video_info.current_time);
                     player.seekTo(this.video_info.current_time);
                 },
-                timecodesSortByTime: function() {
-                    this.timecodes.sort(function(a,b){return a.sec - b.sec});
-                },
-                timecodesSortByCreated: function() {
-                    this.timecodes.sort(function(a,b){return a.created - b.created});
+                timecodesSort: function(fieldname, desc=false) {
+                    if (desc) {
+                        this.timecodes.sort(function(a,b){return a[fieldname] < b[fieldname] ? 1 : -1});
+                    }
+                    else {
+                        this.timecodes.sort(function(a,b){return a[fieldname] < b[fieldname] ? -1 : 1});
+                    }
                 },
                 toggleTheme: function() {
                     this.dark_theme = !this.dark_theme;
@@ -519,7 +558,8 @@
                         text = json_to_csv(new_timecodes, ['time', 'title', 'sec', 'videocode']);
                         download(text, 'TimecodeCutter.csv', 'text/plain;charset=utf-8');
                     }
-                }
+                },
+
             },
             filters: {
                 sec_round: function(val) {
@@ -547,8 +587,9 @@
         // + в input кнопка удалить содержимое. (input-group, type="search")
         // + копия в буфер navigator.clipboard.writeText(text);
         // + возврат сортировки (доб.время добавления)
-        // экспорт в csv, json
-        // сортировка в заголовке время
+        // + экспорт в csv, json
+        // + сортировка в заголовке время (универсальная сортировка)
+        // + запрос "Сохранить csv?" при экспорте в csv
         
     </script>
     
