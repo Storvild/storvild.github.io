@@ -53,10 +53,26 @@
   </head>
   <body>
     <div id="app" :class="{light_theme: !dark_theme, dark_theme: dark_theme}">
-        <div style="width:100%; border:1px solid #EEE; text-align:center;">
+        <nav class="navbar navbar-expand-lg" :class="{'navbar-light': !dark_theme, 'bg-light': !dark_theme, 'navbar-dark': dark_theme, 'bg-dark-': dark_theme}" style="-border-botttom:1px solid black;">
+          <!--a class="navbar-brand" href="#">Youtube Timecode Cutter</a-->
+          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+          <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <div class="navbar-nav">
+              <a class="nav-item nav-link active" href="">Главная <!--span class="sr-only">(current)</span--></a>
+              <a class="nav-item nav-link" href="#" @click="toggleTheme"><span v-if="dark_theme">Светлая тема</span><span v-else>Тёмная тема</span></a>
+              <a class="nav-item nav-link disabled" href="#">Помощь</a>
+              <!--a class="nav-item nav-link" href="#">Pricing</a>
+              <a class="nav-item nav-link disabled" href="#">Disabled</a-->
+            </div>
+          </div>
+        </nav>
+    
+        <div style="width:100%; -border:1px solid #EEE; text-align:center;">
             <h3 v-if="video_info.title != ''"><a :href="self_page_short_link">{{ video_info.author }} - {{ video_info.title }}</a></h3>
             <h3 v-else><a href="">Youtube Timecode Cutter</a></h3>
-            (ver.0.9.2 beta, Vue:{{ vue_ver }})
+            (ver.0.9.3, Vue:{{ vue_ver }})
             
             <div class="p-2 ">
 
@@ -71,6 +87,11 @@
              </div>
             
             <div class="p-2">
+                <button type="button" class="btn btn-light">{{ player_info.width}} x {{ player_info.height }}</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 0.5}" @click="setVideoSizeUp">+</button>
+                <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 0.5}" @click="setVideoSizeDown">-</button>
+                <span style="margin-right:50px;"></span>
+            
                 <button type="button" class="btn btn-light">Скорость</button>
                 <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 0.5}" onClick="setPlaybackRate(0.5);">0.5</button>
                 <button type="button" class="btn btn-outline-info" :class="{'btn-light': video_info.playback_rate == 1}" onClick="setPlaybackRate(1);">1</button>
@@ -105,6 +126,7 @@
                 <button type="button" class="btn btn-outline-primary" @click="updateVideoInfo">updateVideoInfo</button>
                 <!--button type="button" class="btn btn-outline-primary" onClick="setInitVideo();">Вернуться к начальному видео</button-->
                 <button type="button" class="btn" :class="{'btn-light': dark_theme, 'btn-secondary': !dark_theme}" @click="toggleTheme"><span v-if="dark_theme">Светлая тема</span><span v-else>Тёмная тема</span></button>
+                <span style="font-size:170%; border:1px solid white; padding:5px; border-radius: 10px;">{{ this.video_info.current_time | sec_time}}</span>
                 <button type="button" class="btn btn-info" @click="addTimecode">Установить метку</button>
             </div>
             <div>
@@ -182,7 +204,7 @@
             <div v-show="show_block.block_help">
                 <div>Помощь уже в пути...</div>    
             </div>
-            
+            <pre>{{ player }}</pre>
             
         </div>
 
@@ -208,10 +230,12 @@
           </div>
         </div>
 
-        
+        <footer>
+            <div style="text-align:center; border-top:1px solid #CCC; margin-top:20px; padding:20px;">author: Vadim_S</div>
+        </footer>
     </div>
 
-
+    
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
@@ -265,7 +289,7 @@
             // var embedCode = event.target.getVideoEmbedCode(); //Получение embed кода
             // var url = player.getVideoUrl() // Получение url
             // event.target.playVideo(); // В event.target содержится player
-            //app.player = player;
+            // app.player = player;
             app.playerReady();
         }
         function onPlaybackQualityChange(event) {
@@ -410,8 +434,12 @@
                 timeinterval: 1000,
                 dark_theme: true,
                 show_block: {'block_info': false, 'block_json': false, 'block_help': false},
-                player: null,
+                //player: null,
                 timecode_result_format: 'text',
+                player_info: {
+                    width: 0,
+                    height: 0,
+                },
             },
             created: function() {
                 this.videourl = getUrlParam('videocode');
@@ -444,7 +472,7 @@
             },
             methods: {
                 playerReady: function() {
-                    player_ready = true;
+                    this.player_ready = true;
                     console.log('player READY');
                     if (this.videocode != '') {
                         player.loadVideoById(this.videocode);
@@ -452,14 +480,17 @@
                         this.init_videocode = this.videocode;
                         
                     }
+                    this.player_info.width = player.g.g.width;
+                    this.player_info.height = player.g.g.height;
+                        
                 },
                 onReloadVideo: function() {
-                    if (player_ready) {
+                    if (this.player_ready) {
                         player.loadVideoById(this.videocode);
                     }
                 },
                 addTimecode: function() {
-                    if (player_ready) {
+                    if (this.player_ready) {
                         this.timecodes.push({'videocode': this.videocode, 'sec': Math.floor(player.getCurrentTime()), 'sec_raw': player.getCurrentTime(), 'title': '', 'created': new Date()});
                     }
                 },
@@ -467,7 +498,7 @@
                     this.timecodes.splice(index, 1);
                 },
                 seekToIndex: function(index) {
-                    if (player_ready) {
+                    if (this.player_ready) {
                         player.seekTo(this.timecodes[index].sec, true);
                     }
                 },
@@ -497,7 +528,7 @@
                     return res;
                 },
                 updateVideoInfo: function() {
-                    if (player_ready) {
+                    if (this.player_ready) {
                         this.video_info.current_time = Math.floor(player.getCurrentTime());
                         this.video_info.current_time_raw = player.getCurrentTime();
                         this.video_info.playback_quality = player.getPlaybackQuality();
@@ -562,6 +593,20 @@
                         download(text, 'TimecodeCutter.csv', 'text/plain;charset=utf-8');
                     }
                 },
+                setVideoSizeUp: function() {
+                    if (this.player_ready) {
+                        this.player_info.width = Math.floor(this.player_info.width * 1.1);
+                        this.player_info.height = Math.floor(this.player_info.height * 1.1);
+                        player.setSize(this.player_info.width, this.player_info.height);
+                    }
+                },
+                setVideoSizeDown: function() {
+                    if (this.player_ready) {
+                        this.player_info.width = Math.floor(this.player_info.width / 1.1);
+                        this.player_info.height = Math.floor(this.player_info.height / 1.1);
+                        player.setSize(this.player_info.width, this.player_info.height);
+                    }
+                },
 
             },
             filters: {
@@ -593,6 +638,10 @@
         // + экспорт в csv, json
         // + сортировка в заголовке время (универсальная сортировка)
         // + запрос "Сохранить csv?" при экспорте в csv
+        // кнопка копирования ссылки с временем или ссылка в каждой записи
+        // ссылка на просмотр видео на youtube
+        // + изменение размера видео
+        // текущий тайминг
         
     </script>
     
